@@ -11,7 +11,5 @@ services:
     startCommand: "node server.js"
     healthCheckPath: "/api/ping"
     envVars:
-      - key: PORT
-        value: "10000"   # Render 注入，server.js 已读取 process.env.PORT
       - key: NODE_VERSION
-        value: "22"
+        value: "20"
