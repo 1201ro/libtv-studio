@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LibTV Studio - AI漫剧创作工作流</title>
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+</head>
+<body>
+
+  <!-- 顶部栏 -->
+  <div class="topbar">
+    <div class="topbar-logo">
+      <div class="logo-icon">🎬</div>
+      <div class="logo-text">LibTV Studio</div>
+    </div>
+    <div class="topbar-divider"></div>
+    <div class="topbar-project">
+      <span>📄</span>
+      <input type="text" id="projectName" value="未命名漫剧项目" placeholder="项目名称">
+    </div>
+    <div class="topbar-actions">
+      <button class="topbar-btn" onclick="toggleGallery()" title="查看已生成的作品">🖼️ 我的作品 <span class="badge" id="galleryBadge" style="display:none;">0</span></button>
+      <button class="topbar-btn api-center-btn" onclick="openApiCenter()" title="配置所有 AI 接口（豆包 / Toter / ComfyUI）">🔌 API 设置</button>
+      <button class="topbar-btn" onclick="autoRunWorkflow()" title="一键执行全部工作流">⚡ 一键执行</button>
+      <button class="topbar-btn" onclick="clearCanvas()" title="清空画布所有节点" style="color:var(--accent-red);">🗑️ 清空画布</button>
+      <button class="topbar-btn" onclick="exportProject()" title="导出项目">📤 导出</button>
+      <button class="topbar-btn" onclick="showHelp()" title="帮助">❓ 帮助</button>
+      <button class="topbar-btn primary" onclick="generateFinalVideo()" title="生成最终视频">🎬 生成成片</button>
+    </div>
+  </div>
+
+  <!-- 左侧节点面板 -->
+  <div class="sidebar">
+    <div class="sidebar-header">节点库</div>
+    <div class="sidebar-search">
+      <input type="text" id="nodeSearch" placeholder="搜索节点..." oninput="filterNodes()">
+    </div>
+    <div class="sidebar-list" id="sidebarList">
+      <!-- 由JS动态生成 -->
+    </div>
+  </div>
+
+  <!-- 画布 -->
+  <div class="canvas-wrapper" id="canvasWrapper">
+    <div class="canvas-bg"></div>
+    <div class="canvas-content" id="canvasContent">
+      <svg class="connections-svg" id="connectionsSvg"></svg>
+      <!-- 节点由JS动态生成 -->
+    </div>
+
+    <!-- 画布缩放控制 -->
+    <div class="canvas-controls">
+      <button class="canvas-ctrl-btn" onclick="zoomCanvas(-0.1)" title="缩小">−</button>
+      <div class="zoom-display" id="zoomDisplay">100%</div>
+      <button class="canvas-ctrl-btn" onclick="zoomCanvas(0.1)" title="放大">+</button>
+      <button class="canvas-ctrl-btn" onclick="resetCanvas()" title="重置视图">⊙</button>
+      <button class="canvas-ctrl-btn" onclick="fitCanvas()" title="适应内容">⤢</button>
+    </div>
+  </div>
+
+  <!-- 右侧属性面板 -->
+  <div class="props-panel" id="propsPanel">
+    <div class="props-header">
+      <div id="propsIcon"></div>
+      <h3 id="propsTitle">属性</h3>
+      <button class="props-close" onclick="closeProps()">✕</button>
+    </div>
+    <div class="props-body" id="propsBody">
+      <!-- 由JS动态生成 -->
+    </div>
+    <div class="props-actions" id="propsActions" style="display:none;padding:12px 16px;border-top:1px solid rgba(255,255,255,0.08);gap:10px;">
+      <button class="node-btn primary" onclick="saveNodeProps()" style="flex:1;">💾 保存</button>
+      <button class="node-btn" onclick="deleteSelectedNodeFromProps()" style="color:var(--accent-red);flex:1;">🗑️ 删除节点</button>
+    </div>
+  </div>
+
+  <!-- 底部预览栏 -->
+  <div class="bottom-bar" id="bottomBar">
+    <div class="bottom-bar-header">
+      <div class="bottom-bar-title" id="bottomBarTitle">预览</div>
+      <button class="topbar-btn" onclick="toggleBottomBar()" style="height:28px;font-size:12px;">收起</button>
+    </div>
+    <div class="bottom-bar-content" id="bottomBarContent"></div>
+  </div>
+
+  <!-- 我的作品页面 -->
+  <div class="gallery-overlay" id="galleryOverlay">
+    <div class="gallery-page">
+      <div class="gallery-header">
+        <h2>🖼️ 我的作品</h2>
+        <div class="gallery-tabs">
+          <button class="gallery-tab active" data-filter="all" onclick="setGalleryFilter('all')">全部</button>
+          <button class="gallery-tab" data-filter="image" onclick="setGalleryFilter('image')">📷 图片</button>
+          <button class="gallery-tab" data-filter="video" onclick="setGalleryFilter('video')">🎬 视频</button>
+          <button class="gallery-tab" data-filter="script" onclick="setGalleryFilter('script')">📜 脚本</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span class="gallery-count" id="galleryCount">0 个作品</span>
+          <button class="topbar-btn" onclick="clearGallery()" style="color:var(--accent-red);height:32px;font-size:12px;">清空作品</button>
+          <button class="topbar-btn" onclick="toggleGallery()" style="height:32px;font-size:12px;">← 返回画布</button>
+        </div>
+      </div>
+      <div class="gallery-grid" id="galleryGrid"></div>
+    </div>
+  </div>
+
+  <!-- 右键菜单 -->
+  <div class="context-menu" id="contextMenu">
+    <div class="context-menu-item" id="ctxDeleteNode" onclick="contextDeleteNode()">🗑️ 删除节点</div>
+    <div class="context-menu-item" id="ctxDuplicateNode" onclick="contextDuplicateNode()">📋 复制节点</div>
+    <div class="context-menu-item" id="ctxDeleteConn" onclick="contextDeleteConn()">✂️ 删除连线</div>
+    <div class="context-menu-item" onclick="hideContextMenu()">取消</div>
+  </div>
+
+  <!-- 右键画布：添加节点菜单 -->
+  <div class="context-menu add-node-menu" id="addNodeMenu">
+    <div class="add-node-menu-title">➕ 添加节点</div>
+    <div class="add-node-menu-list" id="addNodeMenuList"></div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- 预览模态 -->
+  <div class="preview-modal" id="previewModal" onclick="closePreview(event)">
+    <button class="preview-modal-close" onclick="closePreviewModal()">✕</button>
+    <div id="previewModalContent"></div>
+  </div>
+
+  <!-- 帮助模态 -->
+  <div class="modal-overlay" id="helpModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2>❓ 使用帮助</h2>
+        <button class="modal-close" onclick="document.getElementById('helpModal').classList.remove('show')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="line-height:2;font-size:14px;color:var(--text-secondary);">
+          <h3 style="color:var(--text-primary);margin-bottom:8px;">🚀 快速开始</h3>
+          <p><b>1. 添加节点：</b>从左侧节点库拖拽节点到画布，或点击节点添加</p>
+          <p><b>2. 连接节点：</b>拖拽节点的输出端口(右)到另一个节点的输入端口(左)</p>
+          <p><b>3. 配置属性：</b>双击节点或选中后在右侧面板编辑属性</p>
+          <p><b>4. 执行生成：</b>点击节点上的「生成」按钮，或顶部「一键执行」</p>
+          <p><b>5. 查看结果：</b>生成完成后点击预览图查看大图</p>
+          <br>
+          <h3 style="color:var(--text-primary);margin-bottom:8px;">📋 标准工作流</h3>
+          <p>📜 脚本生成器 → 🖼️ 分镜图生成器 → 🎬 视频生成器 → 📤 导出合成器</p>
+          <p>可选：👤 角色设计器（连接到分镜图生成器以保持角色一致性）</p>
+          <p>可选：🎵 音乐生成器（连接到导出合成器添加BGM）</p>
+          <br>
+          <h3 style="color:var(--text-primary);margin-bottom:8px;">⌨️ 快捷操作</h3>
+          <p>• 拖拽空白处：移动画布</p>
+          <p>• 滚轮：缩放画布</p>
+          <p>• 双击节点：打开属性面板</p>
+          <p>• Delete键：删除选中节点</p>
+          <p>• 拖拽端口：创建连线</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 统一 API 设置中心 -->
+  <div class="modal-overlay" id="apiCenterModal">
+    <div class="modal-box" style="max-width:680px;">
+      <div class="modal-header">
+        <h2>🔌 API 设置中心</h2>
+        <span id="proxy-status-badge" class="proxy-badge proxy-badge-checking">🟡 检测本地代理…</span>
+        <button class="modal-close" onclick="closeApiCenter()">✕</button>
+      </div>
+      <div class="modal-body">
+
+        <!-- 代理服务设置 -->
+        <div class="api-section" style="border:1px solid var(--accent-blue);box-shadow:0 0 0 3px rgba(77,141,255,0.12);">
+          <div class="api-section-title">🖥️ 代理服务地址（CORS 转发）</div>
+          <div style="font-size:12px;line-height:1.7;color:var(--text-secondary);margin-bottom:12px;">
+            所有外部 API 请求都先转发到该地址的 Node 服务（server.js），以绕过浏览器 CORS 限制。
+            <br>• 正常通过 <b>http://localhost:3000</b> 访问时留空即可；
+            <br>• 直接双击打开本地 HTML（<b>file://</b>）时，默认使用 <b>http://127.0.0.1:3000</b>；
+            <br>• 部署到云端时填写你的服务器域名，如 <b>https://your-app.onrender.com</b>。
+          </div>
+          <div class="props-field">
+            <label>🌐 代理基地址（留空自动推断）</label>
+            <input type="text" id="proxy-base-url" placeholder="例如：http://127.0.0.1:3000 或 https://your-app.onrender.com" style="font-family:monospace;font-size:12px;">
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button class="node-btn primary" onclick="saveProxyBaseUrl()" style="flex:1;">💾 保存代理地址</button>
+            <button class="node-btn" onclick="clearProxyBaseUrl()" style="color:var(--accent-red);">🗑️ 清空</button>
+          </div>
+        </div>
+
+        <!-- 豆包区块 -->
+        <div class="api-section api-section-doubao">
+          <div class="api-section-title">🔥 豆包视频生成 API（火山引擎）</div>
+          <div style="font-size:12px;line-height:1.7;color:var(--text-secondary);margin-bottom:12px;">
+            字节跳动火山引擎的视频/图片生成模型（Seedance / Seedream）。未配置 Key 时自动回退占位预览。
+          </div>
+          <div class="props-field">
+            <label>🔑 API Key（ARK_API_KEY）</label>
+            <input type="password" id="doubao-api-key" placeholder="请输入豆包火山引擎API Key" style="font-family:monospace;">
+          </div>
+          <div class="props-field">
+            <label>🌐 API 端点</label>
+            <input type="text" id="doubao-endpoint" value="https://ark.cn-beijing.volces.com/api/v3" style="font-family:monospace;font-size:12px;">
+          </div>
+          <div class="props-field" style="margin-bottom:12px;">
+            <label>✅ 启用豆包生成</label>
+            <select id="doubao-enabled">
+              <option value="false">⚪ 关闭（使用占位预览）</option>
+              <option value="true">🔥 开启（使用豆包真实API）</option>
+            </select>
+          </div>
+          <div id="doubao-status" style="padding:10px;border-radius:6px;margin-bottom:12px;background:var(--bg-input);font-size:12px;display:none;"></div>
+          <div style="display:flex;gap:8px;">
+            <button class="node-btn primary" onclick="saveDoubaoSettings()" style="flex:1;">💾 保存</button>
+            <button class="node-btn" onclick="testDoubaoConnection()" style="flex:1;">🔍 测试连接</button>
+            <button class="node-btn" onclick="clearDoubaoSettings()" style="color:var(--accent-red);">🗑️ 清空</button>
+          </div>
+        </div>
+
+        <!-- Toter 区块 -->
+        <div class="api-section api-section-toter">
+          <div class="api-section-title">🌟 Toter 聚合网关</div>
+          <div style="font-size:12px;line-height:1.7;color:var(--text-secondary);margin-bottom:12px;">
+            统一 AI 模型聚合网关（OpenAI 兼容），可调用聊天/文本类模型。⚠️ <b style="color:#f87171;">实测该网关目前没有可用的视频生成端点</b>：「入梦 Flash」实为文本聊天模型，调用其视频接口会返回服务端错误（invalid_api_platform）。如需视频，请用下方「自定义 API」接入你自己的视频网关。
+          </div>
+          <div class="props-field">
+            <label>🔑 API Key</label>
+            <input type="text" id="toter-api-key" value="" style="font-family:monospace;font-size:12px;" placeholder="sk-...">
+          </div>
+          <div class="props-field">
+            <label>🌐 网关地址</label>
+            <input type="text" id="toter-base-url" value="https://speed.toter.me" style="font-family:monospace;font-size:12px;">
+          </div>
+          <div class="props-field">
+            <label>🎬 视频模型名</label>
+            <input type="text" id="toter-video-model" value="入梦 Flash" style="font-family:monospace;font-size:12px;">
+          </div>
+          <div class="props-field" style="margin-bottom:12px;">
+            <label>✅ 启用</label>
+            <select id="toter-enabled">
+              <option value="false">⚪ 关闭</option>
+              <option value="true">🌟 开启（使用 Toter 视频）</option>
+            </select>
+          </div>
+          <div id="toter-status" style="padding:10px;border-radius:6px;margin-bottom:12px;background:var(--bg-input);font-size:12px;display:none;"></div>
+          <div style="display:flex;gap:8px;">
+            <button class="node-btn primary" onclick="saveToterSettings()" style="flex:1;">💾 保存</button>
+            <button class="node-btn" onclick="testToterConnection()" style="flex:1;">🔍 测试连接</button>
+            <button class="node-btn" onclick="clearToterSettings()" style="color:var(--accent-red);">🗑️ 清空</button>
+          </div>
+        </div>
+
+        <!-- ComfyUI 区块 -->
+        <div class="api-section api-section-comfy">
+          <div class="api-section-title">🎛️ 本地 ComfyUI（Wan2.2 模型）</div>
+          <div style="font-size:12px;line-height:1.7;color:var(--text-secondary);margin-bottom:12px;">
+            本地显卡运行 Wan2.2 开源视频模型（图生视频 / 文生视频 / 图文生视频），无需云端 API Key。
+          </div>
+          <div class="props-field">
+            <label>🌐 ComfyUI 服务地址</label>
+            <input type="text" id="comfy-server" value="http://127.0.0.1:8188" style="font-family:monospace;font-size:12px;" placeholder="http://127.0.0.1:8188">
+          </div>
+          <div class="props-field" style="margin-bottom:12px;">
+            <label>✅ 启用本地 ComfyUI 生成</label>
+            <select id="comfy-enabled">
+              <option value="false">⚪ 关闭（使用云端/占位）</option>
+              <option value="true">🎛️ 开启（使用本地 Wan2.2）</option>
+            </select>
+          </div>
+          <div id="comfy-status" style="padding:10px;border-radius:6px;margin-bottom:12px;background:var(--bg-input);font-size:12px;display:none;"></div>
+          <div style="display:flex;gap:8px;">
+            <button class="node-btn primary" onclick="saveComfySettings()" style="flex:1;">💾 保存</button>
+            <button class="node-btn" onclick="testComfyConnection()" style="flex:1;">🔍 测试连接</button>
+            <button class="node-btn" onclick="clearComfySettings()" style="color:var(--accent-red);">🗑️ 清空</button>
+          </div>
+        </div>
+
+        <!-- 自定义 API 区块 -->
+        <div class="api-section api-section-custom" style="border:1px solid #8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,0.12);">
+          <div class="api-section-title">🧩 自定义 API（推荐：手动连接任意接口）★</div>
+          <div style="font-size:12px;line-height:1.7;color:var(--text-secondary);margin-bottom:12px;">
+            <b style="color:#a78bfa;">这是最通用的「手动连接入口」</b>：直接接入你自己的任意 OpenAI 兼容网关（图片 / 视频皆可）。填写接口地址、Key、模型名并选择类型，保存启用后它会出现在生成节点的模型下拉里。点「测试连接」可立即验证是否通。
+          </div>
+          <div class="props-field">
+            <label>🏷️ 名称（仅显示用）</label>
+            <input type="text" id="custom-name" placeholder="例如：我的 GLM / 自建视频网关" style="font-family:monospace;font-size:12px;">
+          </div>
+          <div class="props-field">
+            <label>🌐 接口地址（OpenAI 兼容，如 https://xxx/v1）</label>
+            <input type="text" id="custom-base-url" placeholder="https://api.example.com/v1" style="font-family:monospace;font-size:12px;">
+          </div>
+          <div class="props-field">
+            <label>🔑 API Key</label>
+            <input type="password" id="custom-api-key" placeholder="sk-..." style="font-family:monospace;font-size:12px;">
+          </div>
+          <div class="props-field">
+            <label>🤖 模型名（该网关下的模型标识）</label>
+            <input type="text" id="custom-model" placeholder="如 gpt-image-1 / 自定义视频模型" style="font-family:monospace;font-size:12px;">
+          </div>
+          <div class="props-field">
+            <label>📦 类型</label>
+            <select id="custom-type">
+              <option value="video">🎬 视频生成</option>
+              <option value="image">🖼️ 图片生成</option>
+            </select>
+          </div>
+          <div class="props-field" style="margin-bottom:12px;">
+            <label>✅ 启用</label>
+            <select id="custom-enabled">
+              <option value="false">⚪ 关闭</option>
+              <option value="true">🧩 开启（在下拉中可选）</option>
+            </select>
+          </div>
+          <div id="custom-status" style="padding:10px;border-radius:6px;margin-bottom:12px;background:var(--bg-input);font-size:12px;display:none;"></div>
+          <div style="display:flex;gap:8px;">
+            <button class="node-btn primary" onclick="saveCustomApiSettings()" style="flex:1;">💾 保存</button>
+            <button class="node-btn" onclick="testCustomApiConnection()" style="flex:1;">🔍 测试连接</button>
+            <button class="node-btn" onclick="clearCustomApiSettings()" style="color:var(--accent-red);">🗑️ 清空</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="js/comfy-bridge.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
