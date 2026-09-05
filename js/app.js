@@ -2587,7 +2587,7 @@ async function proxyFetch(url, init = {}) {
     const isFile = window.location.protocol === 'file:';
     const hint = isFile
       ? `你当前是直接打开本地文件（file://），代理服务应运行在 ${proxyBase}。请先在项目目录执行「node server.js」启动服务，或到 API 设置中心修改「代理服务地址」。`
-      : `代理服务不可达（${proxyBase}/proxy）。请确认已部署并运行 Node 服务（server.js），或修改 API 设置中心里的「代理服务地址」。`;
+      : `代理服务不可达（${proxyBase}/proxy）。请确认代理后端已部署运行（server.js / Cloudflare Functions / Render 等），或修改 API 设置中心里的「代理服务地址」。`;
     const err = new Error(hint);
     err.proxyDown = true;
     throw err;
