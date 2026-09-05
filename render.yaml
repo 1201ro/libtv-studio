@@ -1,0 +1,17 @@
+# Render.com 一键部署配置：把 libtvstudio 部署为云端 Node 服务（前端 + 代理同源，AI 生成直接可用）
+# 用法：把本目录推到 GitHub 仓库，Render 控制台 New -> Web Service -> 关联仓库 -> 选 render.yaml 即可。
+services:
+  - type: web
+    name: libtvstudio
+    runtime: node
+    plan: free
+    region: oregon      # 可选：sin1(新加坡) / oregon / frankfurt
+    branch: main
+    buildCommand: "echo 'no build needed'"
+    startCommand: "node server.js"
+    healthCheckPath: "/api/ping"
+    envVars:
+      - key: PORT
+        value: "10000"   # Render 注入，server.js 已读取 process.env.PORT
+      - key: NODE_VERSION
+        value: "22"
