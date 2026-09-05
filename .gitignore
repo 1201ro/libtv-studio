@@ -1,0 +1,6 @@
+# 本地工作数据（不推送到 GitHub）
+.workbuddy/
+server.log
+node_modules/
+*.log
+.DS_Store
