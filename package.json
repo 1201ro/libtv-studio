@@ -1,0 +1,14 @@
+{
+  "name": "libtvstudio",
+  "version": "1.0.0",
+  "description": "AI 视频工作流平台（前端 + 同源 CORS 代理）",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "private": true
+}
